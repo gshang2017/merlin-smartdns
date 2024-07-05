@@ -1,0 +1,30 @@
+#!/bin/sh
+
+source /usr/sbin/helper.sh
+eval `dbus export smartdns_enable`
+eval `dbus export smartdns_dns_port`
+eval `dbus export smartdns_dnsmasq_set`
+
+# 更改dnsmasq设置
+if [ "$smartdns_enable" == "1" ] && [ "$smartdns_dns_port" != "53" ] && [ -e /koolshare/smartdns/smartdns.conf ];then
+	if [ "$smartdns_dnsmasq_set" != "0" ]  && [ "$smartdns_dnsmasq_set" != "3" ] ;then
+		[ -n "`cat /etc/dnsmasq.conf|grep no-resolv`" ] && sed -i '/no-resolv/d' /etc/dnsmasq.conf
+		[ -n "`cat /etc/dnsmasq.conf|grep servers-file`" ] && sed -i '/servers-file/d' /etc/dnsmasq.conf
+		[ -n "`cat /etc/dnsmasq.conf|grep resolv-file`" ] && sed -i '/resolv-file/d' /etc/dnsmasq.conf
+		pc_insert "no-poll" "no-resolv" "/etc/dnsmasq.conf"
+		if [ "$smartdns_dnsmasq_set" == "1" ];then
+			pc_replace "cache-size=1500" "cache-size=9999" /etc/dnsmasq.conf
+		elif [ "$smartdns_dnsmasq_set" == "2" ];then
+			pc_replace "cache-size=1500" "cache-size=0" /etc/dnsmasq.conf
+		elif [ "$smartdns_dnsmasq_set" == "4" ];then
+			pc_replace "cache-size=1500" "cache-size=9999" /etc/dnsmasq.conf
+			pc_insert "no-poll" "server=::1#$smartdns_dns_port" "/etc/dnsmasq.conf"
+		elif [ "$smartdns_dnsmasq_set" == "5" ];then
+			pc_replace "cache-size=1500" "cache-size=0" /etc/dnsmasq.conf
+			pc_insert "no-poll" "server=::1#$smartdns_dns_port" "/etc/dnsmasq.conf"
+		else
+			echo "不需要设置"
+		fi
+		pc_insert "no-poll" "server=127.0.0.1#$smartdns_dns_port" "/etc/dnsmasq.conf"
+	fi
+fi

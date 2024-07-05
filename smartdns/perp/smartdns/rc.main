@@ -1,0 +1,68 @@
+#!/bin/sh
+
+eval `dbus export smartdns_enable`
+eval `dbus export smartdns_dns_port`
+eval `dbus export smartdns_server_1`
+eval `dbus export smartdns_server_2`
+eval `dbus export smartdns_user_conf_set`
+
+exec 2>&1
+if test ${1} = 'start' ; then
+	if [ "$smartdns_enable" == "1" ];then
+	    if [ "$smartdns_user_conf_set" == "0" ];then
+			#更改DNS端口设置
+			if [ `[ -z $smartdns_dns_port ] && echo Null || echo NotNull` == "NotNull" ];then
+				smart_dns_port=$smartdns_dns_port
+			else
+				smart_dns_port=253
+				dbus set smartdns_dns_port=253
+			fi
+			#刪除ip4端口设置
+			if [  $(grep -nE "^bind\s\:" /koolshare/smartdns/smartdns.conf|grep -v "grep"|wc -l) -ne 0 ];then
+			     sed -i '/^bind\s\:/d'  /koolshare/smartdns/smartdns.conf
+			fi
+			if [  $(grep -nE "^bind\s\[\:\:\]\:" /koolshare/smartdns/smartdns.conf|grep -v "grep"|wc -l) -eq 0 ];then
+				sed -i '$abind [::]:'$smart_dns_port''   /koolshare/smartdns/smartdns.conf
+			else
+
+				smart_dns_port_old_2="`grep -wn "^bind\s\[" /koolshare/smartdns/smartdns.conf`"
+				smart_dns_port_old2="`echo ${smart_dns_port_old_2##*":"}`"
+				if [  "$smart_dns_port" != "$smart_dns_port_old2" ];then
+					sed -i "s/^bind\s\[\:\:\]\:$smart_dns_port_old2/bind [::]:$smart_dns_port/g" /koolshare/smartdns/smartdns.conf
+				fi
+			fi
+			#检查server设置
+			if [ `[ -z $smartdns_server_1 ] && echo Null || echo NotNull` == "NotNull" ];then
+				smartdns_server_1_set=$smartdns_server_1
+			else
+				smartdns_server_1_set=https://223.6.6.6/dns-query
+				dbus set smartdns_server_1=https://223.6.6.6/dns-query
+			fi
+			if [  $(grep -nE "^server\s" /koolshare/smartdns/smartdns.conf|grep -v "grep"|wc -l) -eq 0 ];then
+				sed -i '$aserver '$smartdns_server_1_set''   /koolshare/smartdns/smartdns.conf
+			    if [ `[ -z $smartdns_server_2 ] && echo Null || echo NotNull` == "NotNull" ];then
+					sed -i '$aserver '$smartdns_server_2''   /koolshare/smartdns/smartdns.conf
+			    fi
+			else
+				sed -i '/^server/d'  /koolshare/smartdns/smartdns.conf
+				sed -i '$aserver '$smartdns_server_1_set''   /koolshare/smartdns/smartdns.conf
+				if [ `[ -z $smartdns_server_2 ] && echo Null || echo NotNull` == "NotNull" ];then
+					sed -i '$aserver '$smartdns_server_2''   /koolshare/smartdns/smartdns.conf
+				fi
+			fi
+			if [ "$smartdns_config" != `cat /koolshare/smartdns/smartdns.conf|base64_encode` ];then
+				dbus set smartdns_config=`cat /koolshare/smartdns/smartdns.conf|base64_encode`
+			fi
+		fi
+		#启动程序
+		status=`ps|grep  "smartdns -f -c /koolshare/smartdns/smartdns.conf"|grep -v "grep"|wc -l`
+		if [ $status -gt 1 ];then
+			ps|grep  "smartdns -f -c /koolshare/smartdns/smartdns.conf"|grep -v "grep"|awk '{print $1}'|xargs kill -9 >/dev/null 2>&1
+			exec /koolshare/smartdns/smartdns -f -c /koolshare/smartdns/smartdns.conf
+		elif [ $status -eq 0 ];then
+			exec /koolshare/smartdns/smartdns -f -c /koolshare/smartdns/smartdns.conf
+		fi
+	fi
+fi
+
+exit 0

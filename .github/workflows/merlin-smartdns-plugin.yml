@@ -1,0 +1,47 @@
+name: merlin-smartdns-plugin-build
+
+on:
+  push:
+    paths:
+    - 'smartdns/**'
+    - '.github/workflows/merlin-smartdns-plugin.yml'
+  workflow_dispatch:
+
+jobs:
+  job1:
+    name: plugin-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: 'Set version env'
+        run: |
+          echo "PLUGIN_VER=$(echo `grep -wn "version="  /home/runner/work/merlin-smartdns/merlin-smartdns/smartdns/smartdns/smartdns.sh`|awk -F: '{print $2}'| sed s/"version="//g| sed  s/"\""//g )" >> $GITHUB_ENV
+
+      - name: 'build_smartdns.tar.gz'
+        run: |
+          sudo apt-get update
+          sudo apt-get install qemu-user-static
+          lastver=$(curl --silent https://api.github.com/repos/pymumu/smartdns/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          curl  --retry 2  -o /tmp/smartdns -L  https://github.com/pymumu/smartdns/releases/download/${lastver}/smartdns-arm
+          sudo chmod +x /home/runner/work/merlin-smartdns/merlin-smartdns/smartdns/smartdns/upx
+          sudo chmod +x /tmp/smartdns
+          qemu-arm-static /home/runner/work/merlin-smartdns/merlin-smartdns/smartdns/smartdns/upx /tmp/smartdns
+          cp -rf /tmp/smartdns /home/runner/work/merlin-smartdns/merlin-smartdns/smartdns/smartdns/smartdns
+          cd /home/runner/work/merlin-smartdns/merlin-smartdns/
+          tar -czvf smartdns.tar.gz smartdns
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.PLUGIN_VER }}
+          name: version ${{ env.PLUGIN_VER }}
+          body: |
+            merlin-smartdns-plugin: version-${{ env.PLUGIN_VER }}
+          draft: false
+          prerelease: false
+          files: |
+            /home/runner/work/merlin-smartdns/merlin-smartdns/smartdns.tar.gz
