@@ -31,8 +31,8 @@ check_update_smartdns(){
 			if [ -e  "/tmp/smartdns-arm" ] ; then
 				rm -rf /tmp/smartdns-arm
 			fi
-			echo_date "准备升级到最新版本，开始下载" 
-			curl  --retry 2  -o /tmp/smartdns-arm -L  https://github.com/pymumu/smartdns/releases/download/Release${lastver}/smartdns-arm
+			echo_date "准备升级到最新版本，开始下载"
+			curl -k --retry 2  -o /tmp/smartdns-arm -L  https://github.com/pymumu/smartdns/releases/download/Release${lastver}/smartdns-arm
 			if [ -e  "/tmp/smartdns-arm" ] ; then
 				echo_date "最新版本已下载，准备安装"
 				chmod a+x /tmp/smartdns-arm
